@@ -96,7 +96,7 @@ export default function Home({ allData, settings }) {
                             color: 'rgba(255,255,255,0.7)', 
                             fontSize: { xs: '0.9rem', md: '1.1rem' } 
                         }}>
-                            IT CAMPUS | STUDENT – FACULTY PERFORMANCE EVALUATION
+                            BA CAMPUS | STUDENT – FACULTY PERFORMANCE EVALUATION
                             <Box component="span" sx={{ display: 'block', mt: 1, opacity: 0.6 }}>
                                 A.Y. {settings.academicYear} ({settings.semester})
                             </Box>
