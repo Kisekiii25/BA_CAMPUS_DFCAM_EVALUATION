@@ -282,7 +282,7 @@ export default function Navbar({ settings }) {
                         DFCAMPERS
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'primary.light', fontWeight: 600, mb: 2 }}>
-                        IT-Scholar
+                        DFCAM-Scholar
                     </Typography>
                     
                     <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mb: 2 }} />
