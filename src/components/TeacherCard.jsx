@@ -60,7 +60,7 @@ export default function TeacherCard({ name, subject, image, formLink }) {
 
                     {/* Subject/Department Info */}
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        {subject || "General Instruction"}
+                        {subject || "Instructor"}
                     </Typography>
                 </Box>
             </Box>
