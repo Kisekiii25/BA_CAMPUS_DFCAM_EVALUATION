@@ -9,17 +9,27 @@ import Evaluation from './pages/evaluation';
 import Navbar from './components/Navbar';
 
 function App() {
-    // 1. GLOBAL STATE
-    const [allData, setAllData] = useState(null); 
-    const [settings, setSettings] = useState({ 
-        academicYear: 'Loading...', 
-        semester: 'Loading...' ,
-        website_status: 'OPEN'
+    // 1. INITIALIZE STATE WITH SESSION CACHE
+    // Reads instantly from memory if the student is returning from evaluating a teacher
+    const [allData, setAllData] = useState(() => {
+        const cached = sessionStorage.getItem('evaluation_data');
+        return cached ? JSON.parse(cached) : null;
     });
 
-    // 2. DATA FETCHING (API)
+    const [settings, setSettings] = useState(() => {
+        const cached = sessionStorage.getItem('evaluation_settings');
+        return cached ? JSON.parse(cached) : { 
+            academicYear: 'Loading...', 
+            semester: 'Loading...',
+            website_status: 'OPEN'
+        };
+    });
+
+    // 2. FETCH DATA ONLY ONCE ON MOUNT
     useEffect(() => {
-        // Accessing the Vercel/Vite Environment Variable
+        // Skip fetching if we already cached data during this session
+        if (allData) return;
+
         const apiUrl = import.meta.env.VITE_API_URL;
 
         if (!apiUrl) {
@@ -27,43 +37,30 @@ function App() {
             return;
         }
 
-        // DATA FETCHING
-        const fetchData = () => {
-            fetch(apiUrl)
-                .then(res => res.json())
-                .then(data => {
-                    setAllData(data.teachers);
-                    setSettings(data.settings || data.website_status);
-                })
+        fetch(apiUrl)
+            .then(res => res.json())
+            .then(data => {
+                const teacherData = data.teachers || [];
+                const settingData = data.settings || data.website_status || {
+                    academicYear: 'Loading...', 
+                    semester: 'Loading...',
+                    website_status: 'OPEN'
+                };
+
+                // Update State
+                setAllData(teacherData);
+                setSettings(settingData);
+
+                // Save to Session Storage (Keeps data alive while tab is open)
+                sessionStorage.setItem('evaluation_data', JSON.stringify(teacherData));
+                sessionStorage.setItem('evaluation_settings', JSON.stringify(settingData));
+            })
             .catch(err => {
                 console.error("Data fetch failed:", err);
             });
-        };
-
-       // 2. Define the Recursive Timeout (The "Jitter" Logic)
-        const startPolling = () => {
-            fetchData();
-
-            // Generate a random delay between 0 and 5000ms (5 seconds)
-            const jitter = Math.floor(Math.random() * 5000);
-            
-            // Base time of 30s + the random jitter
-            const nextCheck = 30000 + jitter;
-
-            // Schedule the next check
-            const timerId = setTimeout(startPolling, nextCheck);
-            return timerId;
-        };
-
-        // 3. Start the cycle
-        const globalTimerId = startPolling();
-
-        // 4. Cleanup: Stop polling if the user closes the tab
-        return () => clearTimeout(globalTimerId);   
-
     }, []);
 
-
+    // 3. SYSTEM CLOSED VIEW (EXACT ORIGINAL STYLING & STRUCTURE)
     if (settings && settings.website_status === 'CLOSED') {
         return (
             <Box sx={{ 
@@ -131,7 +128,7 @@ function App() {
         );
     }
 
-    // 3. RENDERING & ROUTES
+    // 4. RENDERING & ROUTES
     return (
         <>
             {/* Navbar */}
