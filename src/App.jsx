@@ -8,26 +8,43 @@ import Home from './pages/Home';
 import Evaluation from './pages/evaluation';
 import Navbar from './components/Navbar';
 
+// CACHE EXPIRATION TIME: 12 Hours (in milliseconds)
+const CACHE_TTL = 12 * 60 * 60 * 1000; 
+
 function App() {
-    // 1. INITIALIZE STATE WITH SESSION CACHE
-    // Reads instantly from memory if the student is returning from evaluating a teacher
-    const [allData, setAllData] = useState(() => {
-        const cached = sessionStorage.getItem('evaluation_data');
-        return cached ? JSON.parse(cached) : null;
-    });
+    // Helper function to safely read cached local data
+    const getCachedData = (key) => {
+        try {
+            const cached = localStorage.getItem(key);
+            const cachedTime = localStorage.getItem(`${key}_time`);
+            
+            if (cached && cachedTime) {
+                const isExpired = Date.now() - Number(cachedTime) > CACHE_TTL;
+                if (!isExpired) {
+                    return JSON.parse(cached);
+                }
+            }
+        } catch (e) {
+            console.error("Storage read error:", e);
+        }
+        return null;
+    };
+
+    // 1. INITIALIZE STATE WITH LOCAL STORAGE (Persists inside Messenger)
+    const [allData, setAllData] = useState(() => getCachedData('evaluation_data'));
 
     const [settings, setSettings] = useState(() => {
-        const cached = sessionStorage.getItem('evaluation_settings');
-        return cached ? JSON.parse(cached) : { 
+        const cachedSettings = getCachedData('evaluation_settings');
+        return cachedSettings || { 
             academicYear: 'Loading...', 
             semester: 'Loading...',
             website_status: 'OPEN'
         };
     });
 
-    // 2. FETCH DATA ONLY ONCE ON MOUNT
+    // 2. FETCH DATA ONLY IF CACHE IS MISSING/EXPIRED
     useEffect(() => {
-        // Skip fetching if we already cached data during this session
+        // If we already have fresh local cached data, don't re-fetch from Google Sheets
         if (allData) return;
 
         const apiUrl = import.meta.env.VITE_API_URL;
@@ -51,20 +68,27 @@ function App() {
                 setAllData(teacherData);
                 setSettings(settingData);
 
-                // Save to Session Storage (Keeps data alive while tab is open)
-                sessionStorage.setItem('evaluation_data', JSON.stringify(teacherData));
-                sessionStorage.setItem('evaluation_settings', JSON.stringify(settingData));
+                // Save to LocalStorage (Stays alive even if Messenger webview restarts)
+                try {
+                    const now = Date.now().toString();
+                    localStorage.setItem('evaluation_data', JSON.stringify(teacherData));
+                    localStorage.setItem('evaluation_data_time', now);
+                    
+                    localStorage.setItem('evaluation_settings', JSON.stringify(settingData));
+                    localStorage.setItem('evaluation_settings_time', now);
+                } catch (e) {
+                    console.error("Storage save error:", e);
+                }
             })
             .catch(err => {
                 console.error("Data fetch failed:", err);
             });
-    }, []);
+    }, [allData]);
 
     // 3. SYSTEM CLOSED VIEW (EXACT ORIGINAL STYLING & STRUCTURE)
     if (settings && settings.website_status === 'CLOSED') {
         return (
             <Box sx={{ 
-                // 1. ENSURE FULL COVERAGE
                 height: '100dvh', 
                 width: '100vw',
                 display: 'flex', 
@@ -72,24 +96,20 @@ function App() {
                 justifyContent: 'center', 
                 alignItems: 'center',
                 
-                // 2. USE YOUR INDEX.CSS VARIABLES
                 bgcolor: 'var(--bg)', // Deep Navy: #0f172a
                 color: 'var(--text-h)', // White: #f9fafb
                 
-                // 3. RESPONSIVE PADDING
                 textAlign: 'center',
                 p: { xs: 2, sm: 4, md: 6 }, 
                 boxSizing: 'border-box',
                 fontFamily: 'var(--sans)'
             }}>
-                {/* ICON SIZE ADAPTS TO SCREEN */}
                 <LockResetIcon sx={{ 
                     fontSize: { xs: 80, sm: 100, md: 120 }, 
-                    color: 'var(--dfcam-gold)', // Use your gold variable
+                    color: 'var(--dfcam-gold)', 
                     mb: 2 
                 }} />
                 
-                {/* TEXT SIZES ADAPT TO SCREEN */}
                 <Typography 
                     variant="h3" 
                     sx={{ 
@@ -105,7 +125,7 @@ function App() {
                     variant="h6" 
                     sx={{ 
                         mt: 2, 
-                        color: 'var(--accent)', // Light Blue: #80d8ff
+                        color: 'var(--accent)', 
                         maxWidth: '600px',
                         fontSize: { xs: '0.9rem', sm: '1.1rem', md: '1.25rem' },
                         lineHeight: 1.5,
@@ -116,7 +136,6 @@ function App() {
                     Please wait for the official announcement from the Admin.
                 </Typography>
 
-                {/* DECORATIVE ACCENT LINE */}
                 <Box sx={{ 
                     mt: 4, 
                     width: '40px', 
@@ -131,17 +150,14 @@ function App() {
     // 4. RENDERING & ROUTES
     return (
         <>
-            {/* Navbar */}
             <Navbar settings={settings} />
 
             <Routes>
-                {/* Landing Page */}
                 <Route 
                     path="/" 
                     element={<Home allData={allData} settings={settings} />} 
                 />
                 
-                {/* Main Evaluation Page */}
                 <Route 
                     path="/evaluation" 
                     element={<Evaluation allData={allData} />} 
